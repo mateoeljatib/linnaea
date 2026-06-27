@@ -134,23 +134,23 @@ if __name__ == "__main__":
     save = True
     matrices = {}
     for de in deltas:
-        # x = simulate(de, **params)
-        # matrices[de] = x
-        # if save:
-        #     dem_str = f"{de}".replace(".", "-")
-        #     np.save(f"magnitudes/traj_x_DeltaEM_{dem_str}_cuadratic.npy", x)
-        # print(
-        #     f"Delta_EM={de:<4}  shape={x.shape}  {x.dtype}  "
-        #     f"{x.nbytes / 2**20:6.1f} MiB" + ("  -> saved" if save else "")
-        # )
+         x = simulate(de, **params)
+         matrices[de] = x
+         if save:
+             dem_str = f"{de}".replace(".", "-")
+             np.save(f"magnitudes/traj_x_DeltaEM_{dem_str}_cuadratic.npy", x)
+         print(
+             f"Delta_EM={de:<4}  shape={x.shape}  {x.dtype}  "
+             f"{x.nbytes / 2**20:6.1f} MiB" + ("  -> saved" if save else "")
+         )
         # plot_trajectories(x, dt=5e-3)
-        plot_surfaces(
-            gamma=params["gamma"],
-            sigma0=params["sigma0"],
-            sigma2=params["sigma2"],
-            alpha=params["alpha"],
-            x_range=(-4.0, 4.0),
-            t_range=(0, params["T"]),
-            nx=60,
-            nt=60,
-        )
+        #plot_surfaces(
+        #    gamma=params["gamma"],
+        #    sigma0=params["sigma0"],
+        #    sigma2=params["sigma2"],
+        #    alpha=params["alpha"],
+        #    x_range=(-4.0, 4.0),
+        #    t_range=(0, params["T"]),
+        #    nx=60,
+        #    nt=60,
+        #)
