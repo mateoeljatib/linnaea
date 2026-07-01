@@ -93,7 +93,13 @@ def compute_D1_D2(
     delta_theta = delta_theta_us * dt
 
     # Global xi-grid (shared across time so the meshgrid is rectangular).
-    xi_edges = np.linspace(data.min(), data.max(), n_xi_bins + 1)
+    # Multiplicative noise makes the process heavy-tailed: data.min()/max() and
+    # mean +/- 4*std are dominated by rare excursions and leave the grid too wide
+    # (few bins clear xi_min_counts). A robust percentile range keeps the grid on
+    # the well-sampled bulk while still spanning the region where D2's quadratic
+    # curvature is visible.
+    xi_edges = np.linspace(np.percentile(data, 2), np.percentile(data, 98), n_xi_bins + 1)
+    
     xi_centers = 0.5 * (xi_edges[:-1] + xi_edges[1:])
 
     last_valid_theta = theta_size - delta_theta_us
