@@ -9,19 +9,26 @@ from compute_D1_D2 import compute_D1_D2
 
 # Parameters must match those used in langevin_em_cuadratic_D2.py
 gamma = 1.0
-sigma0 = 1.0
-sigma2 = 0.3
+sigma0 = 2.0
+sigma2 = 0.6
 alpha = 0.05
 
-delta_em = 2.0
+# Simulation params that produced the .npy (must match langevin_em_cuadratic_D2.py
+# __main__); kept here only so the reproducibility title is complete.
+T_sim = 40.0
+npart_sim = 10_000
+seed_sim = 42
+
+delta_em = 0.5
 path = f"magnitudes/traj_x_DeltaEM_{str(delta_em).replace('.', '-')}_cuadratic.npy"
 data = np.load(path)
 dt = 5e-3
 expected_delta_us = round(delta_em / dt)
 
-n_xi_bins       = 30
+n_xi_bins       = 50
 xi_min_counts   = 50
 n_theta_centers = 50
+xi_percentile   = (2, 98)   # rango percentil de la grilla xi (debe coincidir con compute_D1_D2.py)
 
 xi_centers, theta_centers, D1, D2 = compute_D1_D2(
     data=data,
@@ -73,7 +80,8 @@ D1_theory = D1_slope_KM * xi_mesh
 D2_theory = (sigma0**2 + sigma2**2 * xi_mesh**2) * (1.0 + alpha * theta_mesh) * D2_correction_KM
 
 # ── DIAGNÓSTICO ──────────────────────────────────────────────────────────────
-_xi_edges = np.linspace(data.min(), data.max(), n_xi_bins + 1)
+_xi_edges = np.linspace(np.percentile(data, 2), np.percentile(data, 98), n_xi_bins + 1)
+
 _bin_width = _xi_edges[1] - _xi_edges[0]
 
 # Máscaras de valores válidos (no-NaN); forma: (n_theta, n_xi)
@@ -176,24 +184,95 @@ print(f"    RMS residuo vs teoría  : {_rms_D2:.4f}")
 
 print(f"\n{_SEP}\n")
 # ─────────────────────────────────────────────────────────────────────────────
+def plot_3d_figure():
+    fig = plt.figure(figsize=(14, 6))
+    
+    ax1 = fig.add_subplot(1, 2, 1, projection="3d")
+    ax1.scatter(xi_mesh, theta_mesh, D1.T, s=2, alpha=0.6, color="steelblue", label="computed")
+    ax1.plot_surface(xi_mesh, theta_mesh, D1_theory, alpha=0.3, color="orange")
+    ax1.set_xlabel(r"$\xi$")
+    ax1.set_ylabel(r"$\theta$")
+    ax1.set_zlabel("$D_1$")
+    ax1.set_title("Drift $D_1$")
+    
+    ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+    ax2.scatter(xi_mesh, theta_mesh, D2.T, s=2, alpha=0.6, color="steelblue", label="computed")
+    ax2.plot_surface(xi_mesh, theta_mesh, D2_theory, alpha=0.3, color="orange")
+    ax2.set_xlabel(r"$\xi$")
+    ax2.set_ylabel(r"$\theta$")
+    ax2.set_zlabel("$D_2$")
+    ax2.set_title("Diffusion $D_2$")
+    
+    plt.tight_layout()
+    plt.show()
 
-fig = plt.figure(figsize=(14, 6))
+#plot_3d_figure()
 
-ax1 = fig.add_subplot(1, 2, 1, projection="3d")
-ax1.scatter(xi_mesh, theta_mesh, D1.T, s=2, alpha=0.6, color="steelblue", label="computed")
-ax1.plot_surface(xi_mesh, theta_mesh, D1_theory, alpha=0.3, color="orange")
-ax1.set_xlabel(r"$\xi$")
-ax1.set_ylabel(r"$\theta$")
-ax1.set_zlabel("$D_1$")
-ax1.set_title("Drift $D_1$")
 
-ax2 = fig.add_subplot(1, 2, 2, projection="3d")
-ax2.scatter(xi_mesh, theta_mesh, D2.T, s=2, alpha=0.6, color="steelblue", label="computed")
-ax2.plot_surface(xi_mesh, theta_mesh, D2_theory, alpha=0.3, color="orange")
-ax2.set_xlabel(r"$\xi$")
-ax2.set_ylabel(r"$\theta$")
-ax2.set_zlabel("$D_2$")
-ax2.set_title("Diffusion $D_2$")
+def cut_figure(theta_idxs=None):
+    """Cortes a θ fijo de D1 y D2 (datos vs teoría) en función de xi.
 
-plt.tight_layout()
-plt.show()
+    Figura 3×2: columna izquierda = 3 cortes de D1, columna derecha = 3 cortes
+    de D2. Cada fila es un θ distinto; en cada panel se superponen los puntos
+    estimados (datos) y la curva teórica corregida.
+
+    D1, D2            tienen forma (n_theta_centers, n_xi_bins)  → fila = θ.
+    D1_theory, D2_theory tienen forma (n_xi_bins, n_theta_centers) (meshgrid ij)
+                        → columna = θ.
+    """
+    if theta_idxs is None:
+        # Tres cortes repartidos, evitando los extremos (transitorio inicial /
+        # último θ con menos estadística).
+        theta_idxs = np.linspace(0, n_theta_centers - 1, 5).astype(int)[1:4]
+
+    fig, axes = plt.subplots(3, 2, figsize=(11, 11), sharex=True)
+
+    for row, ti in enumerate(theta_idxs):
+        th = theta_centers[ti]
+
+        # ── Columna izquierda: D1 ──
+        axL = axes[row, 0]
+        axL.scatter(xi_centers, D1[ti], s=14, color="steelblue",
+                    alpha=0.7, label="datos")
+        axL.plot(xi_centers, D1_theory[:, ti], color="orange", lw=2,
+                 label="teoría")
+        axL.axhline(0.0, color="gray", lw=0.5)
+        axL.set_ylabel(r"$D_1$")
+        axL.set_title(rf"$D_1$  —  $\theta = {th:.1f}$ s")
+        axL.grid(alpha=0.3)
+
+        # ── Columna derecha: D2 ──
+        axR = axes[row, 1]
+        axR.scatter(xi_centers, D2[ti], s=14, color="steelblue",
+                    alpha=0.7, label="datos")
+        axR.plot(xi_centers, D2_theory[:, ti], color="orange", lw=2,
+                 label="teoría")
+        axR.set_ylabel(r"$D_2$")
+        axR.set_title(rf"$D_2$  —  $\theta = {th:.1f}$ s")
+        axR.grid(alpha=0.3)
+
+    for ax in axes[-1]:
+        ax.set_xlabel(r"$\xi$")
+    axes[0, 0].legend()
+    axes[0, 1].legend()
+
+    # Título con TODOS los parámetros ajustables → reproducibilidad del plot.
+    title_sim = (
+        rf"Sim:  $\Delta_{{EM}}$={delta_em}   $\gamma$={gamma}   "
+        rf"$\sigma_0$={sigma0}   $\sigma_2$={sigma2}   $\alpha$={alpha}   "
+        rf"dt={dt}   T={T_sim}   npart={npart_sim}   seed={seed_sim}"
+    )
+    title_est = (
+        rf"Estim:  $\Delta\theta$={delta_theta:g}s ({expected_delta_us} pasos)   "
+        rf"n_xi_bins={n_xi_bins}   xi_min_counts={xi_min_counts}   "
+        rf"n_theta={n_theta_centers}   percentil={xi_percentile}   "
+        rf"[Lyapunov] $\rho$={_rho:.3f}"
+    )
+    fig.suptitle(title_sim + "\n" + title_est, fontsize=9, family="monospace")
+
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    plt.show()
+    return fig, axes
+
+
+cut_figure()

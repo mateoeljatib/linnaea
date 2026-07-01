@@ -121,8 +121,8 @@ def plot_surfaces(*, gamma, sigma0, sigma2, alpha, x_range, t_range, nx, nt):
 if __name__ == "__main__":
     params = dict(
         gamma=1.0,
-        sigma0=1.0,
-        sigma2=0.3,
+        sigma0=2.0,
+        sigma2=0.6,
         alpha=0.05,
         dt=5e-3,
         T=40.0,
@@ -130,7 +130,7 @@ if __name__ == "__main__":
         seed=42,
     )
     # deltas = [0.1, 0.5, 2.0, 5.0, 10.0]  # one matrix per Delta_EM
-    deltas = [2.0]  # one matrix per Delta_EM
+    deltas = [0.5]  # one matrix per Delta_EM
     save = True
     matrices = {}
     for de in deltas:
