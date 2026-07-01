@@ -52,6 +52,7 @@ def compute_D1_D2(
     n_xi_bins: int,
     xi_min_counts: int,
     n_theta_centers: int,
+    xi_percentile: tuple[float, float] = (2.0, 98.0),
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Estimate the drift D1 and diffusion D2 coefficients over time slices.
 
@@ -74,6 +75,8 @@ def compute_D1_D2(
         Minimum samples per bin; bins below this are masked with NaN.
     n_theta_centers : int
         Number of time slices at which to estimate the coefficients.
+    xi_percentile : tuple of (low, high), optional
+        Percentile range used to build the (robust) global xi grid.
 
     Returns
     -------
@@ -98,7 +101,8 @@ def compute_D1_D2(
     # (few bins clear xi_min_counts). A robust percentile range keeps the grid on
     # the well-sampled bulk while still spanning the region where D2's quadratic
     # curvature is visible.
-    xi_edges = np.linspace(np.percentile(data, 2), np.percentile(data, 98), n_xi_bins + 1)
+    _p_lo, _p_hi = xi_percentile
+    xi_edges = np.linspace(np.percentile(data, _p_lo), np.percentile(data, _p_hi), n_xi_bins + 1)
     
     xi_centers = 0.5 * (xi_edges[:-1] + xi_edges[1:])
 

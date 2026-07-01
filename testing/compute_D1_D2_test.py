@@ -1,3 +1,4 @@
+import os
 import sys
 
 import matplotlib.pyplot as plt
@@ -6,29 +7,62 @@ import numpy as np
 sys.path.append("../")
 
 from compute_D1_D2 import compute_D1_D2
+from langevin_em_cuadratic_D2 import simulate
 
-# Parameters must match those used in langevin_em_cuadratic_D2.py
-gamma = 1.0
-sigma0 = 2.0
-sigma2 = 0.6
-alpha = 0.05
-
-# Simulation params that produced the .npy (must match langevin_em_cuadratic_D2.py
-# __main__); kept here only so the reproducibility title is complete.
-T_sim = 40.0
-npart_sim = 10_000
-seed_sim = 42
-
+# ═══════════════════════════════════════════════════════════════════════════
+#  PARÁMETROS  —  único lugar para editar. La simulación se corre desde acá.
+# ═══════════════════════════════════════════════════════════════════════════
+# Modelo físico + ruido
+gamma    = 1.5
+sigma0   = 2.0
+sigma2   = 0.6
+alpha    = 0.05
 delta_em = 0.5
-path = f"magnitudes/traj_x_DeltaEM_{str(delta_em).replace('.', '-')}_cuadratic.npy"
-data = np.load(path)
-dt = 5e-3
-expected_delta_us = round(delta_em / dt)
 
+# Integración de la simulación
+dt        = 5e-3
+T_sim     = 40.0
+npart_sim = 10_000
+seed_sim  = 42
+
+# Estimación Kramers-Moyal
 n_xi_bins       = 50
 xi_min_counts   = 50
 n_theta_centers = 50
-xi_percentile   = (2, 98)   # rango percentil de la grilla xi (debe coincidir con compute_D1_D2.py)
+xi_percentile   = (2, 98)   # rango percentil de la grilla xi
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def load_or_simulate():
+    """Devuelve la matriz de trayectorias para los params de arriba.
+
+    El nombre de archivo codifica TODOS los params de simulación, así que:
+      · si ya existe ese .npy  → lo carga (instantáneo);
+      · si no existe           → corre simulate() y lo cachea.
+    Cambiar cualquier param de simulación cambia el nombre → se regenera solo.
+    """
+    tag = (
+        f"g{gamma}_s0{sigma0}_s2{sigma2}_a{alpha}_dEM{delta_em}"
+        f"_dt{dt}_T{T_sim}_N{npart_sim}_seed{seed_sim}"
+    ).replace(".", "-")
+    path = os.path.join("magnitudes", f"traj_{tag}.npy")
+
+    if os.path.exists(path):
+        print(f"[datos] cache encontrada → cargando  {path}")
+        return np.load(path)
+
+    print(f"[datos] sin cache → simulando  {path}")
+    x = simulate(
+        delta_em, gamma=gamma, sigma0=sigma0, sigma2=sigma2, alpha=alpha,
+        dt=dt, T=T_sim, npart=npart_sim, seed=seed_sim,
+    )
+    os.makedirs("magnitudes", exist_ok=True)
+    np.save(path, x)
+    return x
+
+
+data = load_or_simulate()
+expected_delta_us = round(delta_em / dt)
 
 xi_centers, theta_centers, D1, D2 = compute_D1_D2(
     data=data,
@@ -37,6 +71,7 @@ xi_centers, theta_centers, D1, D2 = compute_D1_D2(
     n_xi_bins=n_xi_bins,
     xi_min_counts=xi_min_counts,
     n_theta_centers=n_theta_centers,
+    xi_percentile=xi_percentile,
 )
 xi_mesh, theta_mesh = np.meshgrid(xi_centers, theta_centers, indexing="ij")
 
@@ -80,7 +115,7 @@ D1_theory = D1_slope_KM * xi_mesh
 D2_theory = (sigma0**2 + sigma2**2 * xi_mesh**2) * (1.0 + alpha * theta_mesh) * D2_correction_KM
 
 # ── DIAGNÓSTICO ──────────────────────────────────────────────────────────────
-_xi_edges = np.linspace(np.percentile(data, 2), np.percentile(data, 98), n_xi_bins + 1)
+_xi_edges = np.linspace(np.percentile(data, xi_percentile[0]), np.percentile(data, xi_percentile[1]), n_xi_bins + 1)
 
 _bin_width = _xi_edges[1] - _xi_edges[0]
 
