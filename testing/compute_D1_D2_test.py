@@ -15,15 +15,19 @@ from langevin_em_cuadratic_D2 import simulate
 # Modelo físico + ruido
 gamma    = 1.5
 sigma0   = 2.0
-sigma2   = 0.6
+sigma2   = 0.0
 alpha    = 0.05
 delta_em = 0.5
 
 # Integración de la simulación
 dt        = 5e-3
 T_sim     = 40.0
-npart_sim = 10_000
+npart_sim = 50_000
 seed_sim  = 42
+
+#delta_flawed = None
+flaw_factor  = 1.0
+delta_flawed = delta_em * flaw_factor
 
 # Estimación Kramers-Moyal
 n_xi_bins       = 50
@@ -57,12 +61,15 @@ def load_or_simulate():
         dt=dt, T=T_sim, npart=npart_sim, seed=seed_sim,
     )
     os.makedirs("magnitudes", exist_ok=True)
-    np.save(path, x)
+    #np.save(path, x)
     return x
 
 
 data = load_or_simulate()
-expected_delta_us = round(delta_em / dt)
+if delta_flawed is None:
+    expected_delta_us = round(delta_em / dt)
+else:
+    expected_delta_us = round(delta_flawed / dt)
 
 xi_centers, theta_centers, D1, D2 = compute_D1_D2(
     data=data,
@@ -85,7 +92,9 @@ xi_mesh, theta_mesh = np.meshgrid(xi_centers, theta_centers, indexing="ij")
 #   Var[x(Δθ)|x₀] / (2Δθ)   →   D2_KM = D2_bare · correction
 # where ρ and the correction are derived from the Lyapunov equation of the
 # linearized system  A·[x;η]  with  A = [[-γ, σ₀],[0, -1/τ]].
-delta_theta = expected_delta_us * dt   # physical lag = delta_em
+
+delta_theta = delta_em#round(delta_em / dt) * dt   # physical lag = delta_em
+
 tau_em = delta_em
 
 # 2D system matrix and noise matrix (additive approximation: σ_eff = σ₀)
@@ -241,7 +250,7 @@ def plot_3d_figure():
     plt.tight_layout()
     plt.show()
 
-#plot_3d_figure()
+plot_3d_figure()
 
 
 def cut_figure(theta_idxs=None):
@@ -298,7 +307,8 @@ def cut_figure(theta_idxs=None):
         rf"dt={dt}   T={T_sim}   npart={npart_sim}   seed={seed_sim}"
     )
     title_est = (
-        rf"Estim:  $\Delta\theta$={delta_theta:g}s ({expected_delta_us} pasos)   "
+        #rf"Estim:  $\Delta\theta$={delta_theta:g}s ({expected_delta_us} pasos)   "
+        rf"Estim:  $\Delta\theta$={delta_flawed:g}s ({expected_delta_us} pasos)   " #TODO
         rf"n_xi_bins={n_xi_bins}   xi_min_counts={xi_min_counts}   "
         rf"n_theta={n_theta_centers}   percentil={xi_percentile}   "
         rf"[Lyapunov] $\rho$={_rho:.3f}"
