@@ -32,7 +32,7 @@ def compute_wilcoxon_test(
     # calculate delta_theta_arr_us
     start_scale_us = np.round(dt * to_us)
     end_scale_us = np.round(end_scale * to_us)
-    delta_theta_arr_us = np.arange(start_scale_us, end_scale_us, 1)
+    delta_theta_arr_us = np.arange(start_scale_us, end_scale_us, 1).astype(int)
 
     max_idx = int(2 * delta_theta_arr_us[-1])
     if max_idx >= data.shape[1]:
@@ -98,6 +98,6 @@ def wilcoxon_test_multiple_bins(xi1, xi2, bins1, idx_c0):
         T_list.append(T)
 
     if len(T_list) == 0:
-        raise np.nan
+        return np.nan
     else:
         return np.mean(T_list)
